@@ -30,6 +30,7 @@ async function saveToVault(data) {
         payload: data.email ? `${data.email}:${data.password}` : data.password,
         is_encrypted: false,
         iv: null,
+        url: data.url || null,
       }),
     })
     console.log('Kipit: mot de passe sauvegardé pour', data.site)

@@ -7,6 +7,8 @@ const loginForm = document.getElementById('login-form');
 const loginError = document.getElementById('login-error');
 const logoutBtn = document.getElementById('logout-btn');
 const itemsList = document.getElementById('items-list');
+const siteMatchSection = document.getElementById('site-match-section');
+const siteMatchList = document.getElementById('site-match-list');
 const searchInput = document.getElementById('search-input');
 const addModal = document.getElementById('add-modal');
 const addForm = document.getElementById('add-form');
@@ -17,9 +19,21 @@ const masterPwdField = document.getElementById('master-pwd-field');
 
 let currentType = 'link';
 let sessionCookie = null;
+let currentTabHostname = null;
 
 // Init
 document.addEventListener('DOMContentLoaded', async () => {
+  // Get current tab URL
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs[0] && tabs[0].url) {
+      const url = new URL(tabs[0].url);
+      currentTabHostname = url.hostname.replace('www.', '');
+    }
+  } catch (e) {
+    console.warn('Kipit: impossible de récupérer l\'URL de l\'onglet', e);
+  }
+
   const stored = await chrome.storage.local.get(['kipitSession']);
   if (stored.kipitSession) {
     sessionCookie = stored.kipitSession;
@@ -137,7 +151,9 @@ searchInput.addEventListener('input', () => {
   const query = searchInput.value.toLowerCase();
   document.querySelectorAll('.item').forEach(item => {
     const label = item.querySelector('.item-label').textContent.toLowerCase();
-    item.style.display = label.includes(query) ? 'flex' : 'none';
+    const url = item.querySelector('.item-url');
+    const urlText = url ? url.textContent.toLowerCase() : '';
+    item.style.display = (label.includes(query) || urlText.includes(query)) ? 'flex' : 'none';
   });
 });
 
@@ -165,22 +181,63 @@ async function loadItems() {
   }
 }
 
+function getHostnameFromUrl(url) {
+  try {
+    return new URL(url).hostname.replace('www.', '');
+  } catch {
+    return '';
+  }
+}
+
+function itemMatchesCurrentSite(item) {
+  if (!currentTabHostname || !item.url) return false;
+  const itemHostname = getHostnameFromUrl(item.url);
+  return itemHostname === currentTabHostname;
+}
+
 function renderItems(items) {
   if (items.length === 0) {
     itemsList.innerHTML = '<p class="empty-state">Votre coffre-fort est vide</p>';
+    siteMatchSection.classList.add('hidden');
     return;
   }
 
   const icons = { link: '🔗', password: '🔑', crypto: '₿' };
   const typeLabels = { link: 'Lien', password: 'Mot de passe', crypto: 'Crypto' };
 
-  itemsList.innerHTML = items.map(item => `
-    <div class="item" data-id="${item.id}">
-      <div class="item-icon ${item.type}">${icons[item.type]}</div>
+  // Separate matching items from the rest
+  const matchingItems = items.filter(item => itemMatchesCurrentSite(item));
+  const otherItems = items.filter(item => !itemMatchesCurrentSite(item));
+
+  // Render site match section
+  if (matchingItems.length > 0) {
+    siteMatchSection.classList.remove('hidden');
+    siteMatchList.innerHTML = matchingItems.map(item => buildItemHtml(item, icons, typeLabels, true)).join('');
+  } else {
+    siteMatchSection.classList.add('hidden');
+    siteMatchList.innerHTML = '';
+  }
+
+  // Render the rest
+  if (otherItems.length > 0) {
+    itemsList.innerHTML = otherItems.map(item => buildItemHtml(item, icons, typeLabels, false)).join('');
+  } else if (matchingItems.length > 0) {
+    itemsList.innerHTML = '<p class="empty-state">Tous les éléments correspondent à ce site</p>';
+  } else {
+    itemsList.innerHTML = '<p class="empty-state">Votre coffre-fort est vide</p>';
+  }
+}
+
+function buildItemHtml(item, icons, typeLabels, isMatch) {
+  const urlDisplay = item.url ? `<div class="item-url">${getHostnameFromUrl(item.url) || item.url}</div>` : '';
+  return `
+    <div class="item${isMatch ? ' site-match' : ''}" data-id="${item.id}">
+      <div class="item-icon ${item.type}">${icons[item.type] || '📄'}</div>
       <div class="item-info">
         <div class="item-label">${item.label || 'Sans titre'}</div>
+        ${urlDisplay}
         <div class="item-meta">
-          ${typeLabels[item.type]}
+          ${typeLabels[item.type] || item.type}
           ${item.is_encrypted ? ' · <span class="badge">🔒 Chiffré</span>' : ''}
         </div>
       </div>
@@ -188,7 +245,7 @@ function renderItems(items) {
         ${!item.is_encrypted ? `<button onclick="copyItem('${item.payload}')" title="Copier">📋</button>` : ''}
       </div>
     </div>
-  `).join('');
+  `;
 }
 
 // Copy to clipboard

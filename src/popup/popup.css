@@ -227,3 +227,39 @@ button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
   cursor: pointer;
 }
 .toggle input { width: auto; }
+
+/* Site match section */
+.site-match-section {
+  padding: 0 16px;
+  margin-bottom: 4px;
+}
+
+.site-match-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #22c55e;
+  padding: 8px 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.site-match-section .items-list {
+  padding: 0;
+  border-bottom: 1px solid #262626;
+  margin-bottom: 4px;
+  max-height: none;
+}
+
+.item.site-match {
+  border-left: 3px solid #22c55e;
+  padding-left: 9px;
+}
+
+.item-url {
+  font-size: 10px;
+  color: #525252;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

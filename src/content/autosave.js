@@ -55,7 +55,7 @@ function showSavePrompt(site, email, password) {
   document.getElementById('kipit-save-yes').addEventListener('click', () => {
     chrome.runtime.sendMessage({
       type: 'SAVE_PASSWORD',
-      data: { site, email, password }
+      data: { site, email, password, url: window.location.href }
     })
     overlay.remove()
     promptVisible = false
