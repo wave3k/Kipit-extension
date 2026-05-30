@@ -41,4 +41,4 @@ L'extension se connecte à `https://kipit-two.vercel.app` pour :
 - Le mot de passe maître ne quitte jamais le navigateur
 - Les sessions sont stockées localement via `chrome.storage`
 
-## Par la Team RootLayer
+## Par la RLT Labs
