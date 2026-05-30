@@ -70,7 +70,7 @@ input, textarea {
   outline: none;
   transition: border-color 0.2s;
 }
-input:focus, textarea:focus { border-color: #22c55e; }
+input:focus, textarea:focus { border-color: #3b82f6; }
 input::placeholder, textarea::placeholder { color: #737373; }
 
 textarea { resize: none; min-height: 80px; font-family: monospace; }
@@ -78,7 +78,7 @@ textarea { resize: none; min-height: 80px; font-family: monospace; }
 button[type="submit"] {
   width: 100%;
   padding: 10px;
-  background: #16a34a;
+  background: #2563eb;
   color: white;
   border: none;
   border-radius: 8px;
@@ -87,7 +87,7 @@ button[type="submit"] {
   cursor: pointer;
   transition: background 0.2s;
 }
-button[type="submit"]:hover { background: #22c55e; }
+button[type="submit"]:hover { background: #3b82f6; }
 button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .error {
@@ -105,7 +105,7 @@ button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
   font-size: 12px;
   color: #737373;
 }
-.footer-text a { color: #22c55e; text-decoration: none; }
+.footer-text a { color: #3b82f6; text-decoration: none; }
 
 /* Quick add */
 .quick-add {
@@ -127,7 +127,7 @@ button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
   cursor: pointer;
   transition: all 0.2s;
 }
-.add-btn:hover { border-color: #22c55e; color: #22c55e; }
+.add-btn:hover { border-color: #3b82f6; color: #3b82f6; }
 
 /* Search */
 .search-bar { padding: 10px 16px; }
@@ -180,7 +180,7 @@ button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
   border-radius: 4px;
   font-size: 12px;
 }
-.item-actions button:hover { background: #262626; color: #22c55e; }
+.item-actions button:hover { background: #262626; color: #3b82f6; }
 
 .empty-state {
   text-align: center;
@@ -197,9 +197,9 @@ button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
   border-radius: 4px;
   font-size: 9px;
   font-weight: 600;
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 /* Modal */
@@ -237,7 +237,7 @@ button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
 .site-match-label {
   font-size: 11px;
   font-weight: 600;
-  color: #22c55e;
+  color: #3b82f6;
   padding: 8px 0 4px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -251,7 +251,7 @@ button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 .item.site-match {
-  border-left: 3px solid #22c55e;
+  border-left: 3px solid #3b82f6;
   padding-left: 9px;
 }
 
