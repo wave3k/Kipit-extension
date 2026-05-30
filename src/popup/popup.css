@@ -263,3 +263,32 @@ button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+
+/* Auth buttons */
+.btn-primary-full {
+  width: 100%;
+  padding: 10px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-primary-full:hover { background: #3b82f6; }
+
+.btn-secondary-full {
+  width: 100%;
+  padding: 10px;
+  background: #262626;
+  color: #a3a3a3;
+  border: 1px solid #404040;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-secondary-full:hover { background: #333; color: #e5e5e5; }

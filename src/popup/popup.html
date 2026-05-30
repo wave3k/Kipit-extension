@@ -8,7 +8,7 @@
 </head>
 <body>
   <div id="app">
-    <!-- Login view -->
+    <!-- Sign in view -->
     <div id="login-view" class="view">
       <div class="header">
         <div class="logo">
@@ -22,14 +22,37 @@
         </div>
       </div>
       <div class="content">
-        <h2>Connexion</h2>
-        <form id="login-form">
-          <input type="email" id="login-email" placeholder="Email" required>
-          <input type="password" id="login-password" placeholder="Mot de passe" required>
-          <div id="login-error" class="error hidden"></div>
-          <button type="submit" id="login-btn">Se connecter</button>
-        </form>
-        <p class="footer-text">Pas de compte ? <a href="https://kipit-two.vercel.app/auth/register" target="_blank">Créer un compte</a></p>
+        <h2>Sign in to Kipit</h2>
+        <p style="color:#737373;font-size:13px;margin-bottom:16px;">Sign in on the website to connect your extension.</p>
+        <button id="open-login-btn" type="button" class="btn-primary-full">Open Kipit to sign in</button>
+        <div style="margin-top:12px;">
+          <button id="check-session-btn" type="button" class="btn-secondary-full">I'm already logged in</button>
+        </div>
+        <p class="footer-text">Don't have an account? <a href="https://kipit-two.vercel.app/auth/register" target="_blank">Create one</a></p>
+      </div>
+    </div>
+
+    <!-- Account confirm view -->
+    <div id="confirm-view" class="view hidden">
+      <div class="header">
+        <div class="logo">
+          <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="32" height="32" rx="8" fill="#2563eb"/>
+            <path d="M16 4C16 4 8 7 8 7v7c0 5.5 3.4 10.3 8 13 4.6-2.7 8-7.5 8-13V7s-8-3-8-3z" stroke="white" stroke-width="1.5" fill="none"/>
+            <rect x="13" y="13" width="6" height="5" rx="1" fill="white"/>
+            <path d="M14 13v-2a2 2 0 1 1 4 0v2" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          </svg>
+          <span>Kipit</span>
+        </div>
+      </div>
+      <div class="content" style="text-align:center;">
+        <div id="confirm-avatar" style="width:48px;height:48px;border-radius:50%;background:#2563eb;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px;font-weight:700;color:white;"></div>
+        <h2 id="confirm-name" style="margin-bottom:4px;"></h2>
+        <p id="confirm-email" style="color:#737373;font-size:12px;margin-bottom:20px;"></p>
+        <button id="confirm-continue-btn" type="button" class="btn-primary-full">Continue</button>
+        <div style="margin-top:10px;">
+          <button id="confirm-switch-btn" type="button" class="btn-secondary-full">Not my account</button>
+        </div>
       </div>
     </div>
 

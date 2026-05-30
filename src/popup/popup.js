@@ -2,9 +2,8 @@ const API_URL = 'https://kipit-two.vercel.app';
 
 // DOM elements
 const loginView = document.getElementById('login-view');
+const confirmView = document.getElementById('confirm-view');
 const dashboardView = document.getElementById('dashboard-view');
-const loginForm = document.getElementById('login-form');
-const loginError = document.getElementById('login-error');
 const logoutBtn = document.getElementById('logout-btn');
 const itemsList = document.getElementById('items-list');
 const siteMatchSection = document.getElementById('site-match-section');
@@ -34,61 +33,72 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn('Kipit: impossible de récupérer l\'URL de l\'onglet', e);
   }
 
-  const stored = await chrome.storage.local.get(['kipitSession']);
-  if (stored.kipitSession) {
-    sessionCookie = stored.kipitSession;
-    showDashboard();
-    loadItems();
+  const stored = await chrome.storage.local.get(['kipitSession', 'kipitUser']);
+
+  if (stored.kipitSession && stored.kipitUser) {
+    // Show confirm view
+    showConfirmView(stored.kipitUser);
   } else {
+    // Try to check if logged in on the site
     showLogin();
   }
 });
 
-// Login
-loginForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const email = document.getElementById('login-email').value;
-  const password = document.getElementById('login-password').value;
+// Open login page
+document.getElementById('open-login-btn').addEventListener('click', () => {
+  chrome.tabs.create({ url: 'https://kipit-two.vercel.app/auth/login' });
+});
 
-  loginError.classList.add('hidden');
-  document.getElementById('login-btn').disabled = true;
-
+// Check session after login on site
+document.getElementById('check-session-btn').addEventListener('click', async () => {
   try {
-    const res = await fetch(`${API_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+    const res = await fetch('https://kipit-two.vercel.app/api/auth/me', {
       credentials: 'include',
     });
 
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.message || 'Erreur de connexion');
+    if (res.ok) {
+      const user = await res.json();
+      await chrome.storage.local.set({
+        kipitSession: 'authenticated',
+        kipitUser: { name: user.name, email: user.email, id: user.id }
+      });
+      showConfirmView({ name: user.name, email: user.email });
+    } else {
+      alert('Not logged in yet. Please sign in on the website first.');
     }
-
-    // Store session cookie
-    const cookies = await chrome.cookies.getAll({ url: API_URL });
-    const sessionCk = cookies.find(c => c.name.includes('session') || c.name.includes('auth'));
-    
-    if (sessionCk) {
-      sessionCookie = `${sessionCk.name}=${sessionCk.value}`;
-      await chrome.storage.local.set({ kipitSession: sessionCookie });
-    }
-
-    showDashboard();
-    loadItems();
-  } catch (err) {
-    loginError.textContent = err.message;
-    loginError.classList.remove('hidden');
-  } finally {
-    document.getElementById('login-btn').disabled = false;
+  } catch {
+    alert('Could not connect. Please sign in on the website first.');
   }
+});
+
+// Confirm view
+function showConfirmView(user) {
+  loginView.classList.add('hidden');
+  confirmView.classList.remove('hidden');
+  dashboardView.classList.add('hidden');
+
+  document.getElementById('confirm-avatar').textContent = user.name?.charAt(0)?.toUpperCase() || '?';
+  document.getElementById('confirm-name').textContent = user.name || 'User';
+  document.getElementById('confirm-email').textContent = user.email || '';
+}
+
+document.getElementById('confirm-continue-btn').addEventListener('click', () => {
+  confirmView.classList.add('hidden');
+  dashboardView.classList.remove('hidden');
+  loadItems();
+});
+
+document.getElementById('confirm-switch-btn').addEventListener('click', async () => {
+  await chrome.storage.local.remove(['kipitSession', 'kipitUser']);
+  confirmView.classList.add('hidden');
+  showLogin();
 });
 
 // Logout
 logoutBtn.addEventListener('click', async () => {
-  await chrome.storage.local.remove(['kipitSession']);
+  await chrome.storage.local.remove(['kipitSession', 'kipitUser']);
   sessionCookie = null;
+  dashboardView.classList.add('hidden');
   showLogin();
 });
 
@@ -167,7 +177,7 @@ async function loadItems() {
 
     if (!res.ok) {
       if (res.status === 401) {
-        await chrome.storage.local.remove(['kipitSession']);
+        await chrome.storage.local.remove(['kipitSession', 'kipitUser']);
         showLogin();
         return;
       }
@@ -256,11 +266,13 @@ window.copyItem = async function(text) {
 // Views
 function showLogin() {
   loginView.classList.remove('hidden');
+  confirmView.classList.add('hidden');
   dashboardView.classList.add('hidden');
 }
 
 function showDashboard() {
   loginView.classList.add('hidden');
+  confirmView.classList.add('hidden');
   dashboardView.classList.remove('hidden');
 }
 
