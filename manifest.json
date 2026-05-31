@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Kipit - Coffre-fort Sécurisé",
   "description": "Accédez à votre coffre-fort Kipit directement depuis votre navigateur. Sauvegardez liens, mots de passe et clés crypto en un clic.",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "icons": {
     "16": "icons/icon-16.svg",
     "48": "icons/icon-48.svg",

@@ -15,6 +15,7 @@ const closeModal = document.getElementById('close-modal');
 const modalTitle = document.getElementById('modal-title');
 const encryptCheckbox = document.getElementById('add-encrypt');
 const masterPwdField = document.getElementById('master-pwd-field');
+const pendingSaveBanner = document.getElementById('pending-save-banner');
 
 let currentType = 'link';
 let currentTabHostname = null;
@@ -109,13 +110,17 @@ document.querySelectorAll('.add-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     currentType = btn.dataset.type;
     currentUrl = null;
+    pendingSaveBanner.classList.add('hidden');
     const labels = { link: 'Ajouter un lien', password: 'Ajouter un mot de passe', crypto: 'Ajouter une clé crypto' };
     modalTitle.textContent = labels[currentType];
     addModal.classList.remove('hidden');
   });
 });
 
-closeModal.addEventListener('click', () => addModal.classList.add('hidden'));
+closeModal.addEventListener('click', () => {
+  pendingSaveBanner.classList.add('hidden');
+  addModal.classList.add('hidden');
+});
 
 // Encrypt toggle
 encryptCheckbox.addEventListener('change', () => {
@@ -156,6 +161,7 @@ addForm.addEventListener('submit', async (e) => {
     if (!res.ok) throw new Error('Erreur');
 
     addModal.classList.add('hidden');
+    pendingSaveBanner.classList.add('hidden');
     addForm.reset();
     currentUrl = null;
     encryptCheckbox.checked = true;
@@ -340,6 +346,7 @@ async function prefillPendingItem() {
   document.getElementById('add-payload').value = pending.payload || '';
   encryptCheckbox.checked = true;
   masterPwdField.classList.remove('hidden');
+  pendingSaveBanner.classList.remove('hidden');
   addModal.classList.remove('hidden');
 
   await chrome.storage.session.remove(['pendingVaultItem']);

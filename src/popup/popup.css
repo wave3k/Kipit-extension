@@ -218,6 +218,26 @@ button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .modal-header h3 { font-size: 16px; font-weight: 600; color: white; }
 
+.pending-save {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  background: rgba(37, 99, 235, 0.12);
+}
+.pending-save strong {
+  display: block;
+  color: #dbeafe;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+.pending-save span {
+  display: block;
+  color: #93c5fd;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .toggle {
   display: flex;
   align-items: center;
