@@ -17,8 +17,8 @@ const encryptCheckbox = document.getElementById('add-encrypt');
 const masterPwdField = document.getElementById('master-pwd-field');
 
 let currentType = 'link';
-let sessionCookie = null;
 let currentTabHostname = null;
+let currentUrl = null;
 
 // Init
 document.addEventListener('DOMContentLoaded', async () => {
@@ -33,9 +33,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn('Kipit: impossible de récupérer l\'URL de l\'onglet', e);
   }
 
-  const stored = await chrome.storage.local.get(['kipitSession', 'kipitUser']);
+  encryptCheckbox.checked = true;
+  encryptCheckbox.disabled = true;
+  masterPwdField.classList.remove('hidden');
 
-  if (stored.kipitSession && stored.kipitUser) {
+  const stored = await chrome.storage.local.get(['kipitUser']);
+
+  if (stored.kipitUser) {
     // Show confirm view
     showConfirmView(stored.kipitUser);
   } else {
@@ -59,7 +63,6 @@ document.getElementById('check-session-btn').addEventListener('click', async () 
     if (res.ok) {
       const user = await res.json();
       await chrome.storage.local.set({
-        kipitSession: 'authenticated',
         kipitUser: { name: user.name, email: user.email, id: user.id }
       });
       showConfirmView({ name: user.name, email: user.email });
@@ -85,19 +88,18 @@ function showConfirmView(user) {
 document.getElementById('confirm-continue-btn').addEventListener('click', () => {
   confirmView.classList.add('hidden');
   dashboardView.classList.remove('hidden');
-  loadItems();
+  loadItems().then(prefillPendingItem);
 });
 
 document.getElementById('confirm-switch-btn').addEventListener('click', async () => {
-  await chrome.storage.local.remove(['kipitSession', 'kipitUser']);
+  await chrome.storage.local.remove(['kipitUser']);
   confirmView.classList.add('hidden');
   showLogin();
 });
 
 // Logout
 logoutBtn.addEventListener('click', async () => {
-  await chrome.storage.local.remove(['kipitSession', 'kipitUser']);
-  sessionCookie = null;
+  await chrome.storage.local.remove(['kipitUser']);
   dashboardView.classList.add('hidden');
   showLogin();
 });
@@ -106,6 +108,7 @@ logoutBtn.addEventListener('click', async () => {
 document.querySelectorAll('.add-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     currentType = btn.dataset.type;
+    currentUrl = null;
     const labels = { link: 'Ajouter un lien', password: 'Ajouter un mot de passe', crypto: 'Ajouter une clé crypto' };
     modalTitle.textContent = labels[currentType];
     addModal.classList.remove('hidden');
@@ -116,7 +119,8 @@ closeModal.addEventListener('click', () => addModal.classList.add('hidden'));
 
 // Encrypt toggle
 encryptCheckbox.addEventListener('change', () => {
-  masterPwdField.classList.toggle('hidden', !encryptCheckbox.checked);
+  encryptCheckbox.checked = true;
+  masterPwdField.classList.remove('hidden');
 });
 
 // Add form
@@ -124,9 +128,14 @@ addForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const label = document.getElementById('add-label').value;
   let payload = document.getElementById('add-payload').value;
-  const shouldEncrypt = encryptCheckbox.checked;
+  const shouldEncrypt = true;
   const masterPwd = document.getElementById('add-master-pwd').value;
   let iv = null;
+
+  if (!masterPwd) {
+    alert('Mot de passe maitre requis pour chiffrer cet element.');
+    return;
+  }
 
   if (shouldEncrypt && masterPwd) {
     const encrypted = await encryptData(payload, masterPwd);
@@ -139,17 +148,18 @@ addForm.addEventListener('submit', async (e) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Cookie': sessionCookie || '',
       },
       credentials: 'include',
-      body: JSON.stringify({ type: currentType, label, payload, is_encrypted: shouldEncrypt, iv }),
+      body: JSON.stringify({ type: currentType, label, payload, is_encrypted: shouldEncrypt, iv, url: currentUrl || undefined }),
     });
 
     if (!res.ok) throw new Error('Erreur');
 
     addModal.classList.add('hidden');
     addForm.reset();
-    masterPwdField.classList.add('hidden');
+    currentUrl = null;
+    encryptCheckbox.checked = true;
+    masterPwdField.classList.remove('hidden');
     loadItems();
   } catch (err) {
     alert('Erreur lors de l\'ajout');
@@ -171,13 +181,12 @@ searchInput.addEventListener('input', () => {
 async function loadItems() {
   try {
     const res = await fetch(`${API_URL}/api/vault`, {
-      headers: { 'Cookie': sessionCookie || '' },
       credentials: 'include',
     });
 
     if (!res.ok) {
       if (res.status === 401) {
-        await chrome.storage.local.remove(['kipitSession', 'kipitUser']);
+        await chrome.storage.local.remove(['kipitUser']);
         showLogin();
         return;
       }
@@ -207,7 +216,7 @@ function itemMatchesCurrentSite(item) {
 
 function renderItems(items) {
   if (items.length === 0) {
-    itemsList.innerHTML = '<p class="empty-state">Votre coffre-fort est vide</p>';
+    renderEmpty(itemsList, 'Votre coffre-fort est vide');
     siteMatchSection.classList.add('hidden');
     return;
   }
@@ -222,7 +231,7 @@ function renderItems(items) {
   // Render site match section
   if (matchingItems.length > 0) {
     siteMatchSection.classList.remove('hidden');
-    siteMatchList.innerHTML = matchingItems.map(item => buildItemHtml(item, icons, typeLabels, true)).join('');
+    renderItemList(siteMatchList, matchingItems, icons, typeLabels, true);
   } else {
     siteMatchSection.classList.add('hidden');
     siteMatchList.innerHTML = '';
@@ -230,32 +239,75 @@ function renderItems(items) {
 
   // Render the rest
   if (otherItems.length > 0) {
-    itemsList.innerHTML = otherItems.map(item => buildItemHtml(item, icons, typeLabels, false)).join('');
+    renderItemList(itemsList, otherItems, icons, typeLabels, false);
   } else if (matchingItems.length > 0) {
-    itemsList.innerHTML = '<p class="empty-state">Tous les éléments correspondent à ce site</p>';
+    renderEmpty(itemsList, 'Tous les elements correspondent a ce site');
   } else {
-    itemsList.innerHTML = '<p class="empty-state">Votre coffre-fort est vide</p>';
+    renderEmpty(itemsList, 'Votre coffre-fort est vide');
   }
 }
 
-function buildItemHtml(item, icons, typeLabels, isMatch) {
-  const urlDisplay = item.url ? `<div class="item-url">${getHostnameFromUrl(item.url) || item.url}</div>` : '';
-  return `
-    <div class="item${isMatch ? ' site-match' : ''}" data-id="${item.id}">
-      <div class="item-icon ${item.type}">${icons[item.type] || '📄'}</div>
-      <div class="item-info">
-        <div class="item-label">${item.label || 'Sans titre'}</div>
-        ${urlDisplay}
-        <div class="item-meta">
-          ${typeLabels[item.type] || item.type}
-          ${item.is_encrypted ? ' · <span class="badge">🔒 Chiffré</span>' : ''}
-        </div>
-      </div>
-      <div class="item-actions">
-        ${!item.is_encrypted ? `<button onclick="copyItem('${item.payload}')" title="Copier">📋</button>` : ''}
-      </div>
-    </div>
-  `;
+function renderEmpty(target, text) {
+  target.innerHTML = '';
+  const empty = document.createElement('p');
+  empty.className = 'empty-state';
+  empty.textContent = text;
+  target.appendChild(empty);
+}
+
+function renderItemList(target, items, icons, typeLabels, isMatch) {
+  target.innerHTML = '';
+  items.forEach(item => target.appendChild(buildItemElement(item, icons, typeLabels, isMatch)));
+}
+
+function buildItemElement(item, icons, typeLabels, isMatch) {
+  const root = document.createElement('div');
+  root.className = `item${isMatch ? ' site-match' : ''}`;
+  root.dataset.id = item.id;
+
+  const icon = document.createElement('div');
+  icon.className = `item-icon ${item.type}`;
+  icon.textContent = icons[item.type] || 'Doc';
+
+  const info = document.createElement('div');
+  info.className = 'item-info';
+
+  const label = document.createElement('div');
+  label.className = 'item-label';
+  label.textContent = item.label || 'Sans titre';
+  info.appendChild(label);
+
+  if (item.url) {
+    const url = document.createElement('div');
+    url.className = 'item-url';
+    url.textContent = getHostnameFromUrl(item.url) || item.url;
+    info.appendChild(url);
+  }
+
+  const meta = document.createElement('div');
+  meta.className = 'item-meta';
+  meta.textContent = typeLabels[item.type] || item.type;
+  if (item.is_encrypted) {
+    const badge = document.createElement('span');
+    badge.className = 'badge';
+    badge.textContent = 'Chiffre';
+    meta.append(' · ', badge);
+  }
+  info.appendChild(meta);
+
+  const actions = document.createElement('div');
+  actions.className = 'item-actions';
+  if (!item.is_encrypted) {
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.title = 'Copier';
+    copy.textContent = 'Copier';
+    copy.addEventListener('click', () => copyItem(item.payload));
+    actions.appendChild(copy);
+  }
+
+  root.append(icon, info, actions);
+  return root;
 }
 
 // Copy to clipboard
@@ -274,6 +326,23 @@ function showDashboard() {
   loginView.classList.add('hidden');
   confirmView.classList.add('hidden');
   dashboardView.classList.remove('hidden');
+}
+
+async function prefillPendingItem() {
+  const stored = await chrome.storage.session.get(['pendingVaultItem']);
+  const pending = stored.pendingVaultItem;
+  if (!pending) return;
+
+  currentType = pending.type || 'password';
+  currentUrl = pending.url || null;
+  modalTitle.textContent = 'Ajouter un mot de passe';
+  document.getElementById('add-label').value = pending.label || '';
+  document.getElementById('add-payload').value = pending.payload || '';
+  encryptCheckbox.checked = true;
+  masterPwdField.classList.remove('hidden');
+  addModal.classList.remove('hidden');
+
+  await chrome.storage.session.remove(['pendingVaultItem']);
 }
 
 // Encryption (AES-256-GCM)

@@ -104,11 +104,11 @@
           <input type="text" id="add-label" placeholder="Libellé" required>
           <textarea id="add-payload" placeholder="Contenu" required></textarea>
           <label class="toggle">
-            <input type="checkbox" id="add-encrypt">
-            <span>Chiffrer cet élément</span>
+            <input type="checkbox" id="add-encrypt" checked disabled>
+            <span>Chiffrement obligatoire</span>
           </label>
-          <div id="master-pwd-field" class="hidden">
-            <input type="password" id="add-master-pwd" placeholder="Mot de passe maître">
+          <div id="master-pwd-field">
+            <input type="password" id="add-master-pwd" placeholder="Mot de passe maître" required>
           </div>
           <button type="submit">Ajouter au coffre-fort</button>
         </form>

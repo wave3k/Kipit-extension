@@ -3,38 +3,33 @@
  * Gère la sauvegarde des mots de passe détectés
  */
 
-const API_URL = 'https://kipit-two.vercel.app'
-
 // Écouter les messages du content script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'SAVE_PASSWORD') {
-    saveToVault(message.data)
+    queueVaultSave(message.data)
+      .then(() => sendResponse({ ok: true }))
+      .catch((err) => {
+        console.error('Kipit: erreur preparation sauvegarde', err)
+        sendResponse({ ok: false })
+      })
+    return true
   }
 })
 
-async function saveToVault(data) {
-  const stored = await chrome.storage.local.get(['kipitSession'])
-  if (!stored.kipitSession) return
+async function queueVaultSave(data) {
+  await chrome.storage.session.set({
+    pendingVaultItem: {
+      type: 'password',
+      label: data.site || 'Sans titre',
+      payload: data.email ? `${data.email}:${data.password}` : data.password,
+      url: data.url || '',
+      createdAt: Date.now(),
+    },
+  })
 
   try {
-    await fetch(`${API_URL}/api/vault`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cookie': stored.kipitSession,
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        type: 'password',
-        label: data.site,
-        payload: data.email ? `${data.email}:${data.password}` : data.password,
-        is_encrypted: false,
-        iv: null,
-        url: data.url || null,
-      }),
-    })
-    console.log('Kipit: mot de passe sauvegardé pour', data.site)
+    await chrome.action.openPopup()
   } catch (err) {
-    console.error('Kipit: erreur sauvegarde', err)
+    console.info('Kipit: ouvrez le popup pour terminer la sauvegarde chiffree.')
   }
 }

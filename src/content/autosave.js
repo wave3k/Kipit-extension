@@ -124,26 +124,60 @@ function showSavePrompt(site, email, password, url) {
 
   const overlay = document.createElement('div')
   overlay.id = 'kipit-save-prompt'
-  overlay.innerHTML = `
-    <div style="position:fixed;top:16px;right:16px;z-index:999999;background:#171717;border:1px solid #404040;border-radius:12px;padding:16px;width:320px;font-family:-apple-system,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-        <div style="width:28px;height:28px;background:#2563eb;border-radius:6px;display:flex;align-items:center;justify-content:center;">
-          <svg width="16" height="16" viewBox="0 0 32 32" fill="none"><path d="M16 4C16 4 8 7 8 7v7c0 5.5 3.4 10.3 8 13 4.6-2.7 8-7.5 8-13V7s-8-3-8-3z" stroke="white" stroke-width="2" fill="none"/></svg>
-        </div>
-        <span style="color:white;font-weight:600;font-size:14px;">Kipit</span>
-      </div>
-      <p style="color:#a3a3a3;font-size:12px;margin-bottom:12px;">Save this password for <strong style="color:#e5e5e5;">${site}</strong>?</p>
-      ${email ? `<p style="color:#737373;font-size:11px;margin-bottom:8px;">Account: ${email}</p>` : ''}
-      <div style="display:flex;gap:8px;">
-        <button id="kipit-save-yes" style="flex:1;padding:8px;background:#2563eb;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Save</button>
-        <button id="kipit-save-no" style="flex:1;padding:8px;background:#262626;color:#a3a3a3;border:1px solid #404040;border-radius:6px;font-size:12px;cursor:pointer;">Ignore</button>
-      </div>
-    </div>
-  `
+  const card = document.createElement('div')
+  card.style.cssText = 'position:fixed;top:16px;right:16px;z-index:999999;background:#171717;border:1px solid #404040;border-radius:12px;padding:16px;width:320px;font-family:-apple-system,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,0.5);'
+
+  const header = document.createElement('div')
+  header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:12px;'
+
+  const logo = document.createElement('div')
+  logo.style.cssText = 'width:28px;height:28px;background:#2563eb;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:14px;'
+  logo.textContent = 'K'
+
+  const title = document.createElement('span')
+  title.style.cssText = 'color:white;font-weight:600;font-size:14px;'
+  title.textContent = 'Kipit'
+  header.append(logo, title)
+
+  const message = document.createElement('p')
+  message.style.cssText = 'color:#a3a3a3;font-size:12px;margin-bottom:12px;'
+  message.append('Save this password for ')
+  const strong = document.createElement('strong')
+  strong.style.color = '#e5e5e5'
+  strong.textContent = site
+  message.append(strong, '?')
+
+  card.append(header, message)
+
+  if (email) {
+    const account = document.createElement('p')
+    account.style.cssText = 'color:#737373;font-size:11px;margin-bottom:8px;'
+    account.textContent = `Account: ${email}`
+    card.appendChild(account)
+  }
+
+  const actions = document.createElement('div')
+  actions.style.cssText = 'display:flex;gap:8px;'
+
+  const saveButton = document.createElement('button')
+  saveButton.id = 'kipit-save-yes'
+  saveButton.type = 'button'
+  saveButton.style.cssText = 'flex:1;padding:8px;background:#2563eb;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;'
+  saveButton.textContent = 'Save'
+
+  const ignoreButton = document.createElement('button')
+  ignoreButton.id = 'kipit-save-no'
+  ignoreButton.type = 'button'
+  ignoreButton.style.cssText = 'flex:1;padding:8px;background:#262626;color:#a3a3a3;border:1px solid #404040;border-radius:6px;font-size:12px;cursor:pointer;'
+  ignoreButton.textContent = 'Ignore'
+
+  actions.append(saveButton, ignoreButton)
+  card.appendChild(actions)
+  overlay.appendChild(card)
 
   document.body.appendChild(overlay)
 
-  document.getElementById('kipit-save-yes').addEventListener('click', () => {
+  saveButton.addEventListener('click', () => {
     chrome.runtime.sendMessage({
       type: 'SAVE_PASSWORD',
       data: { site, email, password, url }
@@ -152,7 +186,7 @@ function showSavePrompt(site, email, password, url) {
     promptVisible = false
   })
 
-  document.getElementById('kipit-save-no').addEventListener('click', () => {
+  ignoreButton.addEventListener('click', () => {
     overlay.remove()
     promptVisible = false
   })
