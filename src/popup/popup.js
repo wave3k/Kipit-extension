@@ -14,6 +14,7 @@ const addForm = document.getElementById('add-form');
 const closeModal = document.getElementById('close-modal');
 const modalTitle = document.getElementById('modal-title');
 const encryptCheckbox = document.getElementById('add-encrypt');
+const encryptLabel = document.getElementById('encrypt-label');
 const masterPwdField = document.getElementById('master-pwd-field');
 const pendingSaveBanner = document.getElementById('pending-save-banner');
 
@@ -35,8 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   encryptCheckbox.checked = true;
-  encryptCheckbox.disabled = true;
-  masterPwdField.classList.remove('hidden');
+  syncEncryptionMode('link');
 
   const stored = await chrome.storage.local.get(['kipitUser']);
 
@@ -113,6 +113,7 @@ document.querySelectorAll('.add-btn').forEach(btn => {
     pendingSaveBanner.classList.add('hidden');
     const labels = { link: 'Ajouter un lien', password: 'Ajouter un mot de passe', crypto: 'Ajouter une clé crypto' };
     modalTitle.textContent = labels[currentType];
+    syncEncryptionMode(currentType);
     addModal.classList.remove('hidden');
   });
 });
@@ -122,27 +123,30 @@ closeModal.addEventListener('click', () => {
   addModal.classList.add('hidden');
 });
 
-// Encrypt toggle
 encryptCheckbox.addEventListener('change', () => {
-  encryptCheckbox.checked = true;
-  masterPwdField.classList.remove('hidden');
+  if (currentType === 'link' && !encryptCheckbox.checked) {
+    masterPwdField.classList.add('hidden');
+  } else if (encryptCheckbox.checked) {
+    masterPwdField.classList.remove('hidden');
+  }
 });
 
 // Add form
 addForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const label = document.getElementById('add-label').value;
-  let payload = document.getElementById('add-payload').value;
-  const shouldEncrypt = true;
+  const rawPayload = document.getElementById('add-payload').value;
+  let payload = rawPayload;
+  const shouldEncrypt = currentType === 'link' ? encryptCheckbox.checked : true;
   const masterPwd = document.getElementById('add-master-pwd').value;
   let iv = null;
 
-  if (!masterPwd) {
+  if (shouldEncrypt && !masterPwd) {
     alert('Mot de passe maitre requis pour chiffrer cet element.');
     return;
   }
 
-  if (shouldEncrypt && masterPwd) {
+  if (shouldEncrypt) {
     const encrypted = await encryptData(payload, masterPwd);
     payload = `${encrypted.salt}:${encrypted.ciphertext}`;
     iv = encrypted.iv;
@@ -155,7 +159,7 @@ addForm.addEventListener('submit', async (e) => {
         'Content-Type': 'application/json',
       },
       credentials: 'include',
-      body: JSON.stringify({ type: currentType, label, payload, is_encrypted: shouldEncrypt, iv, url: currentUrl || undefined }),
+      body: JSON.stringify({ type: currentType, label, payload, is_encrypted: shouldEncrypt, iv, url: currentType === 'link' ? rawPayload : currentUrl || undefined }),
     });
 
     if (!res.ok) throw new Error('Erreur');
@@ -164,8 +168,7 @@ addForm.addEventListener('submit', async (e) => {
     pendingSaveBanner.classList.add('hidden');
     addForm.reset();
     currentUrl = null;
-    encryptCheckbox.checked = true;
-    masterPwdField.classList.remove('hidden');
+    syncEncryptionMode(currentType);
     loadItems();
   } catch (err) {
     alert('Erreur lors de l\'ajout');
@@ -344,8 +347,7 @@ async function prefillPendingItem() {
   modalTitle.textContent = 'Ajouter un mot de passe';
   document.getElementById('add-label').value = pending.label || '';
   document.getElementById('add-payload').value = pending.payload || '';
-  encryptCheckbox.checked = true;
-  masterPwdField.classList.remove('hidden');
+  syncEncryptionMode('password');
   pendingSaveBanner.classList.remove('hidden');
   addModal.classList.remove('hidden');
 
@@ -374,4 +376,19 @@ async function encryptData(plaintext, masterPassword) {
     iv: btoa(String.fromCharCode(...iv)),
     salt: btoa(String.fromCharCode(...salt)),
   };
+}
+
+function syncEncryptionMode(type) {
+  if (type === 'link') {
+    encryptLabel.textContent = 'Chiffrer cet element (optionnel)'
+    encryptCheckbox.disabled = false
+    encryptCheckbox.checked = false
+    masterPwdField.classList.add('hidden')
+    return
+  }
+
+  encryptLabel.textContent = 'Chiffrement obligatoire'
+  encryptCheckbox.disabled = true
+  encryptCheckbox.checked = true
+  masterPwdField.classList.remove('hidden')
 }
