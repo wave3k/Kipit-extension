@@ -1,219 +1,330 @@
 /**
- * Content script - Enhanced form detection
- * Detects password submissions across all types of forms
+ * BitLock credential bridge.
+ *
+ * The script captures credentials only after an explicit submit-like action.
+ * It also receives one-time fill commands from the extension popup.
  */
 
-let lastSavedPassword = ''
-let promptVisible = false
+(() => {
+  if (window.top !== window || window.__bitlockCredentialBridge) return
+  window.__bitlockCredentialBridge = true
 
-// Detect password fields and monitor them
-function observePasswordFields() {
-  // Find all password inputs (including dynamically added ones)
-  const passwordInputs = document.querySelectorAll('input[type="password"]')
-  
-  passwordInputs.forEach(input => {
-    if (input.dataset.kipitObserved) return
-    input.dataset.kipitObserved = 'true'
+  const ignoredHostKey = `bitlock-ignore:${window.location.hostname}`
+  let lastCaptureFingerprint = ''
+  let promptHost = null
+  let promptTimer = null
+  let promptEscapeHandler = null
 
-    // Detect Enter key press on password field
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        setTimeout(() => captureCredentials(input), 100)
-      }
-    })
+  function isVisible(input) {
+    if (!(input instanceof HTMLInputElement)) return false
+    const style = window.getComputedStyle(input)
+    const rect = input.getBoundingClientRect()
+    return style.visibility !== 'hidden'
+      && style.display !== 'none'
+      && rect.width > 0
+      && rect.height > 0
+      && !input.disabled
+  }
 
-    // Detect blur (user leaves the field - might have submitted)
-    input.addEventListener('change', () => {
-      // Store the value for later capture
-      input.dataset.kipitValue = input.value
-    })
-  })
+  function firstVisible(inputs) {
+    return Array.from(inputs).find(isVisible) || null
+  }
 
-  // Find all submit buttons near password fields
-  const buttons = document.querySelectorAll('button[type="submit"], input[type="submit"], button:not([type]), [role="button"]')
-  
-  buttons.forEach(btn => {
-    if (btn.dataset.kipitBtnObserved) return
-    btn.dataset.kipitBtnObserved = 'true'
+  function findPasswordField(scope = document) {
+    return firstVisible(scope.querySelectorAll('input[type="password"]'))
+  }
 
-    btn.addEventListener('click', () => {
-      // Find nearest password input
-      const form = btn.closest('form')
-      let passwordInput = null
+  function findUsernameField(passwordInput) {
+    const scope = passwordInput?.form
+      || passwordInput?.closest('[role="form"], main, section')
+      || document
 
-      if (form) {
-        passwordInput = form.querySelector('input[type="password"]')
-      }
-      
-      if (!passwordInput) {
-        // Look in parent containers (for form-less layouts)
-        const container = btn.closest('div[class*="form"], div[class*="login"], div[class*="sign"], div[class*="auth"], section, main, [role="form"]')
-        if (container) {
-          passwordInput = container.querySelector('input[type="password"]')
-        }
-      }
+    const selectors = [
+      'input[autocomplete="username"]',
+      'input[type="email"]',
+      'input[name*="email" i]',
+      'input[name*="user" i]',
+      'input[name*="login" i]',
+      'input[type="text"]',
+    ].join(',')
 
-      if (!passwordInput) {
-        // Last resort: find any visible password input on the page
-        const allPwdInputs = document.querySelectorAll('input[type="password"]')
-        for (const inp of allPwdInputs) {
-          if (inp.offsetParent !== null && inp.value) {
-            passwordInput = inp
-            break
-          }
-        }
-      }
+    return firstVisible(scope.querySelectorAll(selectors))
+      || firstVisible(document.querySelectorAll(selectors))
+  }
 
-      if (passwordInput && passwordInput.value) {
-        setTimeout(() => captureCredentials(passwordInput), 200)
-      }
-    })
-  })
-}
-
-// Also observe traditional form submissions
-function observeForms() {
-  const forms = document.querySelectorAll('form')
-  forms.forEach(form => {
-    if (form.dataset.kipitFormObserved) return
-    form.dataset.kipitFormObserved = 'true'
-
-    form.addEventListener('submit', () => {
-      const passwordInput = form.querySelector('input[type="password"]')
-      if (passwordInput && passwordInput.value) {
-        captureCredentials(passwordInput)
-      }
-    })
-  })
-}
-
-// Capture credentials from a password input
-function captureCredentials(passwordInput) {
-  const password = passwordInput.value || passwordInput.dataset.kipitValue
-  if (!password || password === lastSavedPassword) return
-
-  lastSavedPassword = password
-  const siteName = window.location.hostname.replace('www.', '')
-  const url = window.location.href
-
-  // Find associated email/username input
-  let email = ''
-  const form = passwordInput.closest('form') || passwordInput.closest('div[class*="form"], div[class*="login"], div[class*="sign"], section, main')
-  
-  if (form) {
-    const emailInput = form.querySelector(
-      'input[type="email"], input[name="email"], input[name="username"], input[name="login"], input[name="user"], input[autocomplete="email"], input[autocomplete="username"], input[type="text"]'
+  function setNativeValue(input, value) {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value',
     )
-    if (emailInput) email = emailInput.value
+    descriptor?.set?.call(input, value)
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    input.dispatchEvent(new Event('change', { bubbles: true }))
   }
 
-  // If no email found in form, search broader
-  if (!email) {
-    const allInputs = document.querySelectorAll('input[type="email"], input[name="email"], input[name="username"]')
-    for (const inp of allInputs) {
-      if (inp.value) { email = inp.value; break }
+  function pageContext() {
+    return {
+      hostname: window.location.hostname.replace(/^www\./, ''),
+      url: window.location.href,
+      hasPasswordField: Boolean(findPasswordField()),
     }
   }
 
-  showSavePrompt(siteName, email, password, url)
-}
+  function credentialFrom(passwordInput) {
+    if (!passwordInput || !passwordInput.value) return null
+    const usernameInput = findUsernameField(passwordInput)
+    const hostname = window.location.hostname.replace(/^www\./, '')
 
-function showSavePrompt(site, email, password, url) {
-  if (promptVisible) return
-  promptVisible = true
+    return {
+      username: usernameInput?.value || '',
+      password: passwordInput.value,
+      hostname,
+      label: hostname || document.title || 'Identifiant',
+      url: window.location.href,
+    }
+  }
 
-  const overlay = document.createElement('div')
-  overlay.id = 'kipit-save-prompt'
-  const card = document.createElement('div')
-  card.style.cssText = 'position:fixed;top:16px;right:16px;z-index:999999;background:#171717;border:1px solid #404040;border-radius:12px;padding:16px;width:320px;font-family:-apple-system,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,0.5);'
+  async function scheduleCapture(passwordInput) {
+    const credential = credentialFrom(passwordInput)
+    if (!credential || sessionStorage.getItem(ignoredHostKey) === 'true') return
 
-  const header = document.createElement('div')
-  header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:12px;'
+    const digest = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode([
+        credential.hostname,
+        credential.username,
+        credential.password,
+      ].join('\u0000')),
+    )
+    const fingerprint = Array.from(new Uint8Array(digest), byte => (
+      byte.toString(16).padStart(2, '0')
+    )).join('')
 
-  const logo = document.createElement('div')
-  logo.style.cssText = 'width:28px;height:28px;background:#2563eb;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:14px;'
-  logo.textContent = 'K'
+    if (fingerprint === lastCaptureFingerprint) return
+    lastCaptureFingerprint = fingerprint
+    window.setTimeout(() => showSavePrompt(credential), 180)
+  }
 
-  const title = document.createElement('span')
-  title.style.cssText = 'color:white;font-weight:600;font-size:14px;'
-  title.textContent = 'Kipit'
-  header.append(logo, title)
+  document.addEventListener('submit', (event) => {
+    const form = event.target instanceof HTMLFormElement ? event.target : null
+    scheduleCapture(findPasswordField(form || document))
+  }, true)
 
-  const message = document.createElement('p')
-  message.style.cssText = 'color:#a3a3a3;font-size:12px;margin-bottom:12px;'
-  message.append('Save this password for ')
-  const strong = document.createElement('strong')
-  strong.style.color = '#e5e5e5'
-  strong.textContent = site
-  message.append(strong, '?')
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return
+    const target = event.target
+    if (target instanceof HTMLInputElement && target.type === 'password' && !target.form) {
+      scheduleCapture(target)
+    }
+  }, true)
 
-  card.append(header, message)
+  document.addEventListener('click', (event) => {
+    const target = event.target instanceof Element
+      ? event.target.closest('button, input[type="submit"], [role="button"]')
+      : null
+    if (!target || target.closest('form')) return
 
-  if (email) {
+    const passwordInput = findPasswordField(
+      target.closest('[role="form"], main, section') || document,
+    )
+    if (passwordInput) scheduleCapture(passwordInput)
+  }, true)
+
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (!message || typeof message.type !== 'string') return undefined
+
+    if (message.type === 'BITLOCK_PAGE_CONTEXT') {
+      sendResponse(pageContext())
+      return undefined
+    }
+
+    if (message.type === 'BITLOCK_FILL') {
+      const credential = message.credential || {}
+      const passwordInput = findPasswordField()
+      if (!passwordInput) {
+        sendResponse({ ok: false, reason: 'NO_PASSWORD_FIELD' })
+        return undefined
+      }
+
+      const usernameInput = findUsernameField(passwordInput)
+      if (usernameInput && credential.username) {
+        setNativeValue(usernameInput, String(credential.username))
+      }
+      setNativeValue(passwordInput, String(credential.password || ''))
+      passwordInput.focus()
+      sendResponse({ ok: true })
+    }
+
+    return undefined
+  })
+
+  function closePrompt() {
+    promptHost?.remove()
+    promptHost = null
+    if (promptTimer) window.clearTimeout(promptTimer)
+    promptTimer = null
+    if (promptEscapeHandler) {
+      document.removeEventListener('keydown', promptEscapeHandler, true)
+      promptEscapeHandler = null
+    }
+  }
+
+  function showSavePrompt(credential) {
+    closePrompt()
+
+    const host = document.createElement('div')
+    host.id = 'bitlock-save-prompt-host'
+    host.style.cssText = 'all:initial;position:fixed;inset:16px 16px auto auto;z-index:2147483647;'
+    const shadow = host.attachShadow({ mode: 'closed' })
+
+    const style = document.createElement('style')
+    style.textContent = `
+      :host {
+        --paper: oklch(15% 0.02 250);
+        --paper-2: oklch(19% 0.024 250);
+        --ink: oklch(96% 0.01 145);
+        --muted: oklch(72% 0.025 250);
+        --rule: oklch(31% 0.03 250);
+        --accent: oklch(80% 0.19 145);
+        --focus: oklch(88% 0.16 145);
+        --shadow: oklch(5% 0.01 250 / 0.48);
+        color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      .prompt {
+        width: min(336px, calc(100vw - 32px));
+        border: 1px solid var(--rule);
+        border-radius: 8px;
+        background: var(--paper);
+        color: var(--ink);
+        box-shadow: 0 18px 48px var(--shadow);
+        font: 13px/1.5 "Segoe UI Variable", "Segoe UI", sans-serif;
+        overflow: clip;
+      }
+      .head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--rule);
+        font-family: "Cascadia Mono", Consolas, monospace;
+        font-weight: 700;
+      }
+      .brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+      .mark {
+        display: grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        border: 1px solid var(--accent);
+        border-radius: 6px;
+        color: var(--accent);
+      }
+      .close, button {
+        min-height: 44px;
+        border: 1px solid var(--rule);
+        border-radius: 6px;
+        background: var(--paper-2);
+        color: var(--ink);
+        cursor: pointer;
+        font: inherit;
+      }
+      .close { width: 44px; font-size: 18px; }
+      .body { padding: 14px; }
+      .site { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+      .account { margin: 4px 0 0; color: var(--muted); overflow-wrap: anywhere; }
+      .actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-top: 14px; }
+      button { padding-inline: 12px; white-space: nowrap; }
+      .save { border-color: var(--accent); background: var(--accent); color: var(--paper); font-weight: 700; }
+      button:hover { border-color: var(--accent); }
+      button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+      button:active { transform: translateY(1px); }
+      button:disabled { cursor: not-allowed; opacity: .55; }
+      .never { margin-top: 10px; min-height: 44px; border: 0; background: transparent; color: var(--muted); padding: 0; }
+      @media (prefers-reduced-motion: reduce) { button:active { transform: none; } }
+    `
+
+    const prompt = document.createElement('section')
+    prompt.className = 'prompt'
+    prompt.setAttribute('role', 'dialog')
+    prompt.setAttribute('aria-label', 'Enregistrer l’identifiant dans BitLock')
+
+    const head = document.createElement('div')
+    head.className = 'head'
+    const brand = document.createElement('div')
+    brand.className = 'brand'
+    const mark = document.createElement('span')
+    mark.className = 'mark'
+    mark.textContent = 'B'
+    const title = document.createElement('span')
+    title.textContent = 'BitLock'
+    brand.append(mark, title)
+
+    const close = document.createElement('button')
+    close.className = 'close'
+    close.type = 'button'
+    close.setAttribute('aria-label', 'Fermer')
+    close.textContent = '×'
+    close.addEventListener('click', closePrompt)
+    head.append(brand, close)
+
+    const body = document.createElement('div')
+    body.className = 'body'
+    const site = document.createElement('p')
+    site.className = 'site'
+    site.textContent = `Enregistrer ${credential.hostname} ?`
     const account = document.createElement('p')
-    account.style.cssText = 'color:#737373;font-size:11px;margin-bottom:8px;'
-    account.textContent = `Account: ${email}`
-    card.appendChild(account)
-  }
+    account.className = 'account'
+    account.textContent = credential.username || 'Compte sans identifiant'
 
-  const actions = document.createElement('div')
-  actions.style.cssText = 'display:flex;gap:8px;'
-
-  const saveButton = document.createElement('button')
-  saveButton.id = 'kipit-save-yes'
-  saveButton.type = 'button'
-  saveButton.style.cssText = 'flex:1;padding:8px;background:#2563eb;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;'
-  saveButton.textContent = 'Save'
-
-  const ignoreButton = document.createElement('button')
-  ignoreButton.id = 'kipit-save-no'
-  ignoreButton.type = 'button'
-  ignoreButton.style.cssText = 'flex:1;padding:8px;background:#262626;color:#a3a3a3;border:1px solid #404040;border-radius:6px;font-size:12px;cursor:pointer;'
-  ignoreButton.textContent = 'Ignore'
-
-  actions.append(saveButton, ignoreButton)
-  card.appendChild(actions)
-  overlay.appendChild(card)
-
-  document.body.appendChild(overlay)
-
-  saveButton.addEventListener('click', () => {
-    chrome.runtime.sendMessage({
-      type: 'SAVE_PASSWORD',
-      data: { site, email, password, url }
+    const actions = document.createElement('div')
+    actions.className = 'actions'
+    const save = document.createElement('button')
+    save.className = 'save'
+    save.type = 'button'
+    save.textContent = 'Continuer dans BitLock'
+    save.addEventListener('click', () => {
+      save.disabled = true
+      chrome.runtime.sendMessage({
+        type: 'BITLOCK_CAPTURE_CREDENTIAL',
+        credential,
+      }, (response) => {
+        if (response?.ok) closePrompt()
+        else {
+          save.disabled = false
+          save.textContent = 'Réessayer'
+        }
+      })
     })
-    overlay.remove()
-    promptVisible = false
-  })
 
-  ignoreButton.addEventListener('click', () => {
-    overlay.remove()
-    promptVisible = false
-  })
+    const dismiss = document.createElement('button')
+    dismiss.type = 'button'
+    dismiss.textContent = 'Ignorer'
+    dismiss.addEventListener('click', closePrompt)
+    actions.append(save, dismiss)
 
-  // Auto-dismiss after 15 seconds
-  setTimeout(() => {
-    if (overlay.parentNode) {
-      overlay.remove()
-      promptVisible = false
+    const never = document.createElement('button')
+    never.className = 'never'
+    never.type = 'button'
+    never.textContent = 'Ne plus proposer pendant cette session'
+    never.addEventListener('click', () => {
+      sessionStorage.setItem(ignoredHostKey, 'true')
+      closePrompt()
+    })
+
+    body.append(site, account, actions, never)
+    prompt.append(head, body)
+    shadow.append(style, prompt)
+    document.documentElement.appendChild(host)
+    promptHost = host
+
+    promptEscapeHandler = (event) => {
+      if (event.key === 'Escape') {
+        closePrompt()
+      }
     }
-  }, 15000)
-}
-
-// Observe DOM changes for SPAs and dynamically loaded forms
-const observer = new MutationObserver(() => {
-  observePasswordFields()
-  observeForms()
-})
-
-observer.observe(document.body, { childList: true, subtree: true })
-
-// Initial scan
-observePasswordFields()
-observeForms()
-
-// Re-scan periodically (catches lazy-loaded forms)
-setInterval(() => {
-  observePasswordFields()
-  observeForms()
-}, 3000)
+    document.addEventListener('keydown', promptEscapeHandler, true)
+    promptTimer = window.setTimeout(closePrompt, 30_000)
+  }
+})()

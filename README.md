@@ -1,44 +1,75 @@
-# Kipit - Extension Chrome
+# BitLock — Extension Chrome locale
 
-Extension Chrome pour accéder à votre coffre-fort Kipit directement depuis votre navigateur.
+L’extension BitLock permet de rechercher, déchiffrer, copier, remplir et
+enregistrer des identifiants depuis l’instance locale de BitLock.
 
-## Fonctionnalités
+## Fonctions
 
-- Connexion à votre compte Kipit
-- Voir tous vos éléments (liens, mots de passe, crypto)
-- Ajouter des éléments rapidement
-- Chiffrement AES-256-GCM côté client
-- Recherche dans le coffre-fort
-- Copie en un clic
+- connexion avec un jeton d’extension révocable ;
+- déverrouillage avec le mot de passe maître, conservé uniquement en mémoire ;
+- affichage prioritaire des comptes correspondant au site actif ;
+- remplissage du username et du mot de passe ;
+- capture après une action explicite de soumission ;
+- validation avant enregistrement d’un identifiant détecté ;
+- chiffrement AES-256-GCM côté extension ;
+- génération de mots de passe forts ;
+- recherche locale dans les éléments déjà déchiffrés.
 
-## Installation (Mode développeur)
+## Prérequis
 
-1. Ouvrez Chrome → `chrome://extensions/`
-2. Activez le **Mode développeur** (en haut à droite)
-3. Cliquez sur **Charger l'extension non empaquetée**
-4. Sélectionnez le dossier de ce projet
+1. Lancer BitLock sur `http://localhost:3000`.
+2. Se connecter à BitLock.
+3. Ouvrir les paramètres de sécurité et créer un jeton d’extension.
+4. Copier le jeton commençant par `blx_`.
 
-## Structure
+Le jeton n’est affiché qu’au moment de sa création. Il peut être révoqué depuis
+les paramètres BitLock.
 
-```
-├── manifest.json          # Configuration Chrome Extension
-├── icons/                 # Icônes de l'extension
-└── src/popup/
-    ├── popup.html         # Interface principale
-    ├── popup.css          # Styles
-    └── popup.js           # Logique (auth, vault, crypto)
-```
+## Installation
 
-## Connexion à l'API
+1. Ouvrir `chrome://extensions/`.
+2. Activer le mode développeur.
+3. Choisir **Charger l’extension non empaquetée**.
+4. Sélectionner le dossier `Kipit-extension`.
+5. Ouvrir le popup BitLock et coller le jeton.
 
-L'extension se connecte à `https://kipit-two.vercel.app` pour :
-- Authentification (`/api/auth/login`)
-- CRUD coffre-fort (`/api/vault`)
+Après une modification du code, utiliser le bouton **Actualiser** de la carte
+de l’extension dans `chrome://extensions/`.
 
 ## Sécurité
 
-- Le chiffrement se fait **dans l'extension** (côté client)
-- Le mot de passe maître ne quitte jamais le navigateur
-- Les sessions sont stockées localement via `chrome.storage`
+- Le mot de passe maître n’est jamais écrit dans `chrome.storage`.
+- Une credential capturée reste en mémoire dans le service worker pendant deux
+  minutes au maximum.
+- Le serveur reçoit uniquement un payload chiffré avec AES-256-GCM.
+- Le jeton d’extension donne accès uniquement aux routes dédiées aux mots de
+  passe chiffrés.
+- Le remplissage est déclenché par un clic explicite dans le popup.
+- L’extension ne demande ni la permission `cookies`, ni la permission `tabs`.
 
-## Par la RLT Labs
+Le jeton est stocké dans l’espace privé de l’extension afin de conserver la
+connexion après le redémarrage du navigateur. Verrouiller le coffre efface
+immédiatement les données déchiffrées de la mémoire du popup.
+
+## Validation
+
+```powershell
+bun run test
+```
+
+Le validateur contrôle la syntaxe JavaScript, le manifeste, les permissions,
+les identifiants DOM, les anciennes URL et les erreurs d’encodage.
+
+## Structure
+
+```text
+manifest.json
+icons/
+scripts/validate.mjs
+src/background.js
+src/content/autosave.js
+src/popup/popup.html
+src/popup/popup.js
+src/popup/popup.css
+src/popup/tokens.css
+```

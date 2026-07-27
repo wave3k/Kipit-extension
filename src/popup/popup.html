@@ -1,124 +1,146 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kipit</title>
-  <link rel="stylesheet" href="popup.css">
-</head>
-<body>
-  <div id="app">
-    <!-- Sign in view -->
-    <div id="login-view" class="view">
-      <div class="header">
-        <div class="logo">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="32" height="32" rx="8" fill="#2563eb"/>
-            <path d="M16 4C16 4 8 7 8 7v7c0 5.5 3.4 10.3 8 13 4.6-2.7 8-7.5 8-13V7s-8-3-8-3z" stroke="white" stroke-width="1.5" fill="none"/>
-            <rect x="13" y="13" width="6" height="5" rx="1" fill="white"/>
-            <path d="M14 13v-2a2 2 0 1 1 4 0v2" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-          </svg>
-          <span>Kipit</span>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BitLock</title>
+    <link rel="stylesheet" href="tokens.css">
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main id="app" class="shell">
+      <header class="topbar">
+        <a id="brand-link" class="brand" href="http://localhost:3000/" target="_blank" rel="noreferrer">
+          <span class="brand__mark" aria-hidden="true">B</span>
+          <span class="brand__copy">
+            <strong>BitLock</strong>
+            <small>extension / local</small>
+          </span>
+        </a>
+        <div class="topbar__actions">
+          <button id="lock-btn" class="icon-button hidden" type="button" title="Verrouiller" aria-label="Verrouiller le coffre">
+            <span aria-hidden="true">⌁</span>
+          </button>
+          <button id="disconnect-btn" class="icon-button hidden" type="button" title="Déconnecter l’extension" aria-label="Déconnecter l’extension">
+            <span aria-hidden="true">×</span>
+          </button>
         </div>
-      </div>
-      <div class="content">
-        <h2>Sign in to Kipit</h2>
-        <p style="color:#737373;font-size:13px;margin-bottom:16px;">Sign in on the website to connect your extension.</p>
-        <button id="open-login-btn" type="button" class="btn-primary-full">Open Kipit to sign in</button>
-        <div style="margin-top:12px;">
-          <button id="check-session-btn" type="button" class="btn-secondary-full">I'm already logged in</button>
-        </div>
-        <p class="footer-text">Don't have an account? <a href="https://kipit-two.vercel.app/auth/register" target="_blank">Create one</a></p>
-      </div>
-    </div>
+      </header>
 
-    <!-- Account confirm view -->
-    <div id="confirm-view" class="view hidden">
-      <div class="header">
-        <div class="logo">
-          <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="32" height="32" rx="8" fill="#2563eb"/>
-            <path d="M16 4C16 4 8 7 8 7v7c0 5.5 3.4 10.3 8 13 4.6-2.7 8-7.5 8-13V7s-8-3-8-3z" stroke="white" stroke-width="1.5" fill="none"/>
-            <rect x="13" y="13" width="6" height="5" rx="1" fill="white"/>
-            <path d="M14 13v-2a2 2 0 1 1 4 0v2" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-          </svg>
-          <span>Kipit</span>
+      <section id="connect-view" class="view">
+        <div class="view__intro">
+          <p class="signal">connexion locale</p>
+          <h1>Reliez votre coffre.</h1>
+          <p>Créez un jeton dans les paramètres BitLock, puis collez-le ici. Le mot de passe maître n’est jamais enregistré.</p>
         </div>
-      </div>
-      <div class="content" style="text-align:center;">
-        <div id="confirm-avatar" style="width:48px;height:48px;border-radius:50%;background:#2563eb;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px;font-weight:700;color:white;"></div>
-        <h2 id="confirm-name" style="margin-bottom:4px;"></h2>
-        <p id="confirm-email" style="color:#737373;font-size:12px;margin-bottom:20px;"></p>
-        <button id="confirm-continue-btn" type="button" class="btn-primary-full">Continue</button>
-        <div style="margin-top:10px;">
-          <button id="confirm-switch-btn" type="button" class="btn-secondary-full">Not my account</button>
-        </div>
-      </div>
-    </div>
 
-    <!-- Dashboard view -->
-    <div id="dashboard-view" class="view hidden">
-      <div class="header">
-        <div class="logo">
-          <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="32" height="32" rx="8" fill="#2563eb"/>
-            <path d="M16 4C16 4 8 7 8 7v7c0 5.5 3.4 10.3 8 13 4.6-2.7 8-7.5 8-13V7s-8-3-8-3z" stroke="white" stroke-width="1.5" fill="none"/>
-            <rect x="13" y="13" width="6" height="5" rx="1" fill="white"/>
-            <path d="M14 13v-2a2 2 0 1 1 4 0v2" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-          </svg>
-          <span>Kipit</span>
-        </div>
-        <button id="logout-btn" class="icon-btn" title="Déconnexion">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        </button>
-      </div>
-
-      <!-- Quick add -->
-      <div class="quick-add">
-        <button id="add-link" class="add-btn" data-type="link">+ Lien</button>
-        <button id="add-password" class="add-btn" data-type="password">+ MDP</button>
-        <button id="add-crypto" class="add-btn" data-type="crypto">+ Crypto</button>
-      </div>
-
-      <!-- Items list -->
-      <div id="items-container">
-        <div class="search-bar">
-          <input type="text" id="search-input" placeholder="Rechercher...">
-        </div>
-        <div id="site-match-section" class="site-match-section hidden">
-          <div class="site-match-label">🌐 Pour ce site</div>
-          <div id="site-match-list" class="items-list"></div>
-        </div>
-        <div id="items-list" class="items-list">
-          <p class="empty-state">Chargement...</p>
-        </div>
-      </div>
-
-      <!-- Add modal -->
-      <div id="add-modal" class="modal hidden">
-        <div id="pending-save-banner" class="pending-save hidden">
-          <strong>Mot de passe detecte</strong>
-          <span>Verifiez les infos, entrez votre master password, puis sauvegardez chiffre.</span>
-        </div>
-        <div class="modal-header">
-          <h3 id="modal-title">Ajouter</h3>
-          <button id="close-modal" class="icon-btn">&times;</button>
-        </div>
-        <form id="add-form">
-          <input type="text" id="add-label" placeholder="Libellé" required>
-          <textarea id="add-payload" placeholder="Contenu" required></textarea>
-          <label class="toggle">
-            <input type="checkbox" id="add-encrypt">
-            <span id="encrypt-label">Chiffrer cet element</span>
-          </label>
-          <div id="master-pwd-field">
-            <input type="password" id="add-master-pwd" placeholder="Mot de passe maître" required>
+        <form id="connect-form" class="form-stack" novalidate>
+          <label for="token-input">Jeton d’extension</label>
+          <div class="field-with-action">
+            <input id="token-input" name="token" type="password" required autocomplete="off" spellcheck="false" placeholder="blx_…">
+            <button id="toggle-token-btn" class="field-action" type="button" aria-label="Afficher le jeton">Voir</button>
           </div>
-          <button type="submit">Ajouter au coffre-fort</button>
+          <p class="helper">Le jeton reste dans le stockage privé de l’extension et peut être révoqué depuis BitLock.</p>
+          <button id="connect-btn" class="button button--primary" type="submit">
+            <span class="button__idle">Connecter l’extension</span>
+            <span class="button__loading">Vérification…</span>
+          </button>
         </form>
-      </div>
-    </div>
-  </div>
-  <script src="popup.js"></script>
-</body>
+
+        <a class="text-link" href="http://localhost:3000/dashboard/settings" target="_blank" rel="noreferrer">
+          Ouvrir les paramètres BitLock
+        </a>
+      </section>
+
+      <section id="unlock-view" class="view hidden">
+        <div class="view__intro">
+          <p class="signal">coffre connecté</p>
+          <h1>Déverrouillez localement.</h1>
+          <p>Votre secret sert uniquement à déchiffrer les identifiants dans cette fenêtre.</p>
+        </div>
+
+        <form id="unlock-form" class="form-stack" novalidate>
+          <label for="master-password-input">Mot de passe maître</label>
+          <input id="master-password-input" name="masterPassword" type="password" required autocomplete="off" placeholder="Votre secret maître">
+          <p class="helper">La fermeture du popup verrouille automatiquement la session.</p>
+          <button id="unlock-submit-btn" class="button button--primary" type="submit">
+            <span class="button__idle">Déverrouiller</span>
+            <span class="button__loading">Déchiffrement…</span>
+          </button>
+        </form>
+      </section>
+
+      <section id="vault-view" class="view view--vault hidden">
+        <div class="vault-toolbar">
+          <div>
+            <p class="signal">coffre déverrouillé</p>
+            <h1>Identifiants</h1>
+          </div>
+          <button id="open-add-btn" class="button button--compact" type="button">+ Ajouter</button>
+        </div>
+
+        <label class="search-field" for="search-input">
+          <span aria-hidden="true">/</span>
+          <input id="search-input" type="search" autocomplete="off" placeholder="Rechercher un site ou un compte">
+        </label>
+
+        <section id="site-section" class="credential-section hidden" aria-labelledby="site-title">
+          <div class="section-heading">
+            <h2 id="site-title">Pour ce site</h2>
+            <span id="site-count" class="count">0</span>
+          </div>
+          <div id="site-list" class="credential-list"></div>
+        </section>
+
+        <section class="credential-section" aria-labelledby="all-title">
+          <div class="section-heading">
+            <h2 id="all-title">Tout le coffre</h2>
+            <span id="all-count" class="count">0</span>
+          </div>
+          <div id="all-list" class="credential-list"></div>
+        </section>
+      </section>
+
+      <section id="add-view" class="view hidden">
+        <div class="modal-heading">
+          <div>
+            <p id="add-signal" class="signal">nouvel identifiant</p>
+            <h1 id="add-title">Ajouter au coffre</h1>
+          </div>
+          <button id="close-add-btn" class="icon-button" type="button" aria-label="Fermer">×</button>
+        </div>
+
+        <form id="add-form" class="form-stack" novalidate>
+          <label for="add-label">Nom du site</label>
+          <input id="add-label" name="label" type="text" required maxlength="200" autocomplete="off" placeholder="Ex. GitHub">
+
+          <label for="add-url">Adresse du site</label>
+          <input id="add-url" name="url" type="url" required maxlength="2048" autocomplete="off" placeholder="https://example.com/login">
+
+          <label for="add-username">Identifiant</label>
+          <input id="add-username" name="username" type="text" maxlength="512" autocomplete="off" spellcheck="false" placeholder="username">
+
+          <label for="add-password">Mot de passe</label>
+          <div class="field-with-action">
+            <input id="add-password" name="password" type="password" required maxlength="4096" autocomplete="new-password" placeholder="Mot de passe">
+            <button id="generate-password-btn" class="field-action" type="button">Générer</button>
+          </div>
+
+          <div class="security-note">
+            <span aria-hidden="true">◇</span>
+            <p>Chiffrement AES-256-GCM avant l’envoi. Seul le contenu chiffré atteint BitLock.</p>
+          </div>
+
+          <button id="save-btn" class="button button--primary" type="submit">
+            <span class="button__idle">Chiffrer et enregistrer</span>
+            <span class="button__loading">Chiffrement…</span>
+          </button>
+        </form>
+      </section>
+
+      <div id="status" class="status hidden" role="status" aria-live="polite"></div>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
 </html>
